@@ -1,5 +1,5 @@
 ;
-; AVRMorse.asm
+; AVRMorse.inc
 ;
 ; Created: 2020-04-09 04:28:02
 ; Author : harri a. pehkonen
