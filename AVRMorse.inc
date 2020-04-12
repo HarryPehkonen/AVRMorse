@@ -31,20 +31,15 @@ _morse_tokens:			.dw 0x0000
 ; for when transitioning from one state to another
 _morse_handler:			.dw 0x0000
 
+; user must supply the address of a routine that will turn on
+; whatever signalling device is used (attached to a pin).
+_morse_on_callback:		.dw 0x0000
+
+; routine to turn off signalling device
+_morse_off_callback:	.dw 0x0000
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .cseg
-
-init:
-	sbi DDRB, DDB4    ; pin 4 output
-
-start:
-	ldi r16, 'b'
-	rcall morse_send
-	rcall morse_send_character_separator
-	ldi r16, 'a'
-	rcall morse_send
-done:
-	rjmp done
 
 morse_send_character_separator:
 	rcall _morse_short_pause
@@ -52,6 +47,36 @@ morse_send_character_separator:
 
 morse_send_word_separator:
 	rcall _morse_long_pause
+	ret
+
+; until the user supplies one, use a dummy callback for turning
+; signalling device on and off
+_morse_dummy_callback:
+	ret
+
+morse_init:
+	push ZL
+	push ZH
+
+	ldi ZL, LOW(_morse_dummy_callback)
+	ldi ZH, HIGH(_morse_dummy_callback)
+	rcall morse_set_on_callback
+	rcall morse_set_off_callback
+
+	pop ZH
+	pop ZL
+	ret
+
+; expect callback in Z register
+morse_set_on_callback:
+	sts _morse_on_callback, ZL
+	sts _morse_on_callback + 1, ZH
+	ret
+
+; expect callback in Z register
+morse_set_off_callback:
+	sts _morse_off_callback, ZL
+	sts _morse_off_callback + 1, ZH
 	ret
 
 ; expect character to be in r16
@@ -107,12 +132,12 @@ _morse_found_letter:
 
 _morse_next:
 	; get the next bit to process.  save the rest for later
-	lds XL, _morse_tokens
-	lds XH, _morse_tokens + 1
-	lsl XL ; rotate msb of morse tokens into carry flag
-	rol XH ; note:  16 bits are rotated
-	sts _morse_tokens, XL
-	sts _morse_tokens + 1, XH
+	lds ZL, _morse_tokens
+	lds ZH, _morse_tokens + 1
+	lsl ZL ; rotate msb of morse tokens into carry flag
+	rol ZH ; note:  16 bits are rotated
+	sts _morse_tokens, ZL
+	sts _morse_tokens + 1, ZH
 
 	; the state table has two entries for each state.  one for
 	; when encountering a zero, and another for when encountering
@@ -163,7 +188,8 @@ _morse_return:
 	pop YL
 	pop r17
 	ret
-	
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 _morse_short_pause:
 	push r16
 	push r17
@@ -181,13 +207,12 @@ _morse_wait_longer:
 	pop r16
 	ret
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; long pause is three times the length of a short pause
 _morse_long_pause:
-	push r16
 	rcall _morse_short_pause
 	rcall _morse_short_pause
 	rcall _morse_short_pause
-	pop r16
 	ret
 
 ; state table
@@ -221,6 +246,7 @@ _morse_state_done:
 	rjmp _morse_return    ; dummy
 	.dw _morse_state_done ; dummy
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 _morse_char_table:
 	_morse_char_a:	.dw 'a', 0b1011000000000000
 	_morse_char_b:	.dw 'b', 0b1101010100000000
@@ -262,25 +288,35 @@ _morse_char_table:
 
 .equ _morse_char_entry_size = _morse_char_b - _morse_char_a
 
-led_on:
-	sbi PORTB, PORTB4
-	ret
-
-led_off:
-	cbi PORTB, PORTB4
-	ret
-
 _morse_dot:
-	rcall led_on
+	;rcall led_on
+	lds ZL, _morse_on_callback
+	lds ZH, _morse_on_callback + 1
+	icall
+
 	rcall _morse_short_pause
-	rcall led_off
+
+	;rcall led_off
+	lds ZL, _morse_off_callback
+	lds ZH, _morse_off_callback + 1
+	icall
+
 	rcall _morse_short_pause
 	rjmp _morse_next
 
 _morse_dash:
-	rcall led_on
+	;rcall led_on
+	lds ZL, _morse_on_callback
+	lds ZH, _morse_on_callback + 1
+	icall
+
 	rcall _morse_long_pause
-	rcall led_off
+
+	;rcall led_off
+	lds ZL, _morse_off_callback
+	lds ZH, _morse_off_callback + 1
+	icall
+
 	rcall _morse_short_pause
 	rjmp _morse_next
 
