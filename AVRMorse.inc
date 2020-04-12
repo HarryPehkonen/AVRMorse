@@ -14,7 +14,7 @@
 .dseg
 
 ; use address inside state table as state.
-_morse_current_state:	.dw 0x0000
+_morse_current_state:	.byte 2
 
 ; use 0 and 1 bits as characters.  keep in an "easily readable format"
 ; by writing from left to right (i.e. first work with the 1 in
@@ -26,17 +26,17 @@ _morse_current_state:	.dw 0x0000
 ;   0 -- separates dots and dashes
 ;   00 -- the end
 
-_morse_tokens:			.dw 0x0000
+_morse_tokens:			.byte 2
 
 ; for when transitioning from one state to another
-_morse_handler:			.dw 0x0000
+_morse_handler:			.byte 2
 
 ; user must supply the address of a routine that will turn on
 ; whatever signalling device is used (attached to a pin).
-_morse_on_callback:		.dw 0x0000
+_morse_on_callback:		.byte 2
 
 ; routine to turn off signalling device
-_morse_off_callback:	.dw 0x0000
+_morse_off_callback:	.byte 2
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .cseg
